@@ -16,8 +16,8 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Slf4j
 @Service
@@ -29,7 +29,9 @@ public class PhotoServiceImpl implements PhotoService {
     private SortRepository sortRepository;
 
     private static List<Sort> sorts = new LinkedList<>();
-    private static List<Photo> photos = new LinkedList<>();
+
+    private static Map<Long, List<Photo>> listMap = new LinkedHashMap<>();
+
 
     @Override
     public Photo save(MultipartFile uploadFile, HttpServletRequest request) {
@@ -59,7 +61,7 @@ public class PhotoServiceImpl implements PhotoService {
             List<Sort> list = sortRepository.findAll();
             sorts.addAll(list);
         }
-        CompletableFuture.supplyAsync(() -> {
+        supplyAsync(() -> {
             List<Sort> list = sortRepository.findAll();
             if (list.size() != sorts.size()) {
                 sorts.clear();
@@ -72,19 +74,19 @@ public class PhotoServiceImpl implements PhotoService {
 
     @Override
     public List<Photo> getSortByOne(Long id) {
-        if (CollUtil.isEmpty(photos)) {
+        if (CollUtil.isEmpty(listMap.get(id))) {
             List<Photo> list = photoRepository.findAllByClassId(id);
-            photos.addAll(list);
+            listMap.put(id, list);
         }
-        CompletableFuture.supplyAsync(() -> {
+        supplyAsync(() -> {
             List<Photo> list = photoRepository.findAllByClassId(id);
-            if (list.size() != photos.size()) {
-                photos.clear();
-                photos.addAll(list);
+            if (listMap.get(id).size() != list.size()) {
+                listMap.clear();
+                listMap.put(id, list);
             }
-            return photos;
+            return listMap;
         });
-        return photos;
+        return listMap.get(id);
     }
 
     @Override
